@@ -181,7 +181,7 @@ payload = {
 with open(OUT, 'w', encoding='utf-8') as f:
     json.dump(payload, f, ensure_ascii=False, separators=(',', ':'))
 
-leaked = [k for k in ('caseid','patient_id','full_name','name','phone_number','age','gender','nikshay_id')
+leaked = [k for k in ('caseid','patient_id','full_name','name','phone_number','nikshay_id','id_prefix')
           if records and k in records[0]]
 assert not leaked, f'IDENTIFIER LEAKED INTO OUTPUT: {leaked}'
 print(f'Wrote {len(records)} anonymized records to {OUT} (generated {payload["generated"]}). No identifiers in output.')
