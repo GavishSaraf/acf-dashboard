@@ -7,7 +7,7 @@ on:
   schedule:
     # Daily at 01:30 UTC. CommCare refreshes its feeds once a day; set this to
     # shortly AFTER that refresh (times are UTC; adjust to your context).
-    - cron: '30 1 * * *'
+    - cron: '30 3 * * *'
   workflow_dispatch: {}   # adds a manual "Run workflow" button in the Actions tab
 
 permissions:
