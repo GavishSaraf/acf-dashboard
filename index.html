@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACF At-Camp Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+<style>
+  :root {
+    --navy: #003E78;
+    --navy-dark: #042C53;
+    --turq: #117996;
+    --green: #1ED37F;
+    --green-dark: #173404;
+    --teal: #6EDBCD;
+    --gold: #F3B71B;
+    --gold-dark: #412402;
+    --coral: #D85A30;
+    --coral-dark: #4A1B0C;
+    --lightblue: #D5E7EF;
+    --lightgrey: #F2F2F2;
+    --ink: #1A1A1A;
+    --muted: #5F5E5A;
+    --border: #D3D1C7;
+    --card-bg: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    background: var(--lightgrey); color: var(--ink);
+  }
+  header {
+    background: var(--navy); color: #fff; padding: 18px 28px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .upload-box { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .upload-box input[type=file] {
+    background: #fff; border-radius: 6px; padding: 4px; color: #000; font-size: 12px;
+  }
+  .status-pill {
+    background: var(--turq); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+  }
+  nav.tabs {
+    display: flex; background: var(--navy-dark); padding: 0 28px;
+  }
+  nav.tabs button {
+    background: none; border: none; color: #cbd8e6; padding: 12px 20px; font-size: 14px;
+    cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit;
+  }
+  nav.tabs button.active { color: #fff; border-bottom-color: var(--gold); font-weight: 600; }
+  .filter-bar {
+    background: #fff; border-bottom: 1px solid var(--border); padding: 14px 28px;
+    display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 6px; }
+  .filter-group label.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  .btn-group { display: flex; gap: 4px; }
+  .btn-group button {
+    border: 1px solid var(--border); background: #fff; padding: 6px 12px; font-size: 13px;
+    border-radius: 6px; cursor: pointer; font-family: inherit; color: var(--ink);
+  }
+  .btn-group button.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .district-check { display: flex; gap: 10px; flex-wrap: wrap; }
+  .district-check label { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .filter-group input[type=date] { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 13px; font-family: inherit; }
+  main { padding: 24px 28px 60px; max-width: 1400px; margin: 0 auto; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .kpi-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--card-bg); border-radius: 12px; padding: 16px 20px; flex: 1; min-width: 170px;
+    border: 1px solid var(--border); border-top: 4px solid var(--navy);
+  }
+  .kpi-card .val { font-size: 28px; font-weight: 700; color: var(--navy); line-height: 1.1; }
+  .kpi-card .lbl { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .kpi-card .pct { font-size: 15px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+  .kpi-card .def { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.35; opacity: 0.9; }
+  .kpi-card .note { font-size: 10.5px; color: var(--muted); margin-top: 8px; line-height: 1.35; border-top: 1px solid var(--border); padding-top: 6px; }
+  .kpi-card.leak { border-top-color: var(--coral); }
+  .kpi-card.leak .val { color: var(--coral); }
+  .kpi-card.good { border-top-color: var(--green); }
+  .kpi-card.good .val { color: var(--green-dark); }
+  section.panel {
+    background: var(--card-bg); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+  section.panel h2 { font-size: 16px; margin: 0 0 4px; color: var(--navy); }
+  section.panel .desc { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+  .cluster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .metric-tile {
+    background: var(--lightgrey); border-radius: 8px; padding: 12px 14px; border-left: 4px solid var(--turq);
+  }
+  .metric-tile .name { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .metric-tile .num { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .metric-tile.pcr { border-left-color: var(--turq); }
+  .metric-tile.naat { border-left-color: var(--gold); }
+  table.heatmap { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.heatmap th, table.heatmap td { padding: 8px 12px; text-align: center; border: 1px solid var(--border); }
+  table.heatmap th { background: var(--navy); color: #fff; font-weight: 600; font-size: 12px; }
+  table.heatmap td.district-name { text-align: left; font-weight: 600; background: var(--lightgrey); }
+  .result-tables-row { display: flex; gap: 32px; flex-wrap: wrap; margin-top: 6px; }
+  .result-arm { flex: 1; min-width: 260px; }
+  .result-arm h4 { font-size: 13px; color: var(--navy); margin: 0 0 10px; }
+  .result-pair { display: flex; gap: 16px; flex-wrap: wrap; }
+  table.result-table { border-collapse: collapse; font-size: 13px; }
+  table.result-table caption { caption-side: top; font-size: 12px; font-weight: 600; color: var(--muted); text-align: left; padding-bottom: 6px; }
+  table.result-table td { border: 1px solid var(--border); padding: 7px 16px; }
+  table.result-table td.rlabel { background: var(--navy); color: #fff; font-weight: 600; min-width: 76px; }
+  table.result-table td.rvalue { background: #C5EEF5; color: #0c447c; font-weight: 700; text-align: center; min-width: 56px; }
+  .matrix-row { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 6px; }
+  .matrix-block h4 { font-size: 13px; color: var(--navy); margin: 0 0 10px; }
+  table.matrix-table { border-collapse: collapse; font-size: 13px; }
+  table.matrix-table th, table.matrix-table td { border: 1px solid var(--border); padding: 8px 16px; text-align: center; }
+  table.matrix-table th { background: var(--navy); color: #fff; font-weight: 600; }
+  table.matrix-table td.corner { background: var(--lightgrey); }
+  table.matrix-table td.concordant { background: #C0DD97; color: #173404; font-weight: 700; }
+  table.matrix-table td.discordant { background: #FAC775; color: #412402; font-weight: 700; }
+  .matrix-footnote { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .group-summary-row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .group-summary-block { flex: 1; min-width: 260px; background: var(--lightgrey); border-radius: 10px; padding: 16px; }
+  .group-summary-block h4 { font-size: 14px; color: var(--navy); margin: 0 0 12px; }
+  .group-summary-test { margin-bottom: 14px; }
+  .group-summary-test .test-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .group-summary-test-row { display: flex; gap: 12px; align-items: flex-start; }
+  .positivity-card { background: #fff; border-radius: 8px; padding: 8px 14px; border: 1px solid var(--border); min-width: 90px; text-align: center; }
+  .positivity-card .val { font-size: 18px; font-weight: 700; color: var(--navy); }
+  .positivity-card .lbl { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .empty-state {
+    text-align: center; padding: 80px 20px; color: var(--muted);
+  }
+  .empty-state h2 { color: var(--navy); }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 10px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .footnote { font-size: 11.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .assumption-banner {
+    background: var(--lightblue); border-left: 4px solid var(--turq); padding: 10px 16px; border-radius: 6px;
+    font-size: 12.5px; color: #0c447c; margin-bottom: 20px;
+  }
+  #sankeyChart, #dumbbellChart { width: 100%; }
+  .trend-controls { display:flex; gap:28px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .trend-group { display:flex; gap:4px; flex-wrap:wrap; }
+  .trend-group button { border:1px solid var(--border); background:#fff; padding:6px 12px; font-size:12.5px; border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit; }
+  .trend-group button:hover { border-color:var(--navy); }
+  .trend-group button.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .trend-basis { font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.4; }
+  .trend-tip { position:absolute; pointer-events:none; z-index:20; background:#0C2A47; color:#fff; font-size:11.5px; line-height:1.45; padding:6px 9px; border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,.25); white-space:nowrap; }
+  .tat-hist-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px 24px; }
+  .tat-hist-title { font-weight:600; color:var(--navy); font-size:13px; margin-bottom:2px; }
+  @media (max-width:760px){ .tat-hist-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>ACF At-Camp Dashboard</h1>
+    <div class="sub" id="dataStatusSub">Data snapshot: August 5, 2026 &nbsp;|&nbsp; 1,135 case records</div>
+  </div>
+  <div class="upload-box">
+    <span class="status-pill" id="rowCountPill">497 records</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="funnel">Screening &amp; Sample Collection Flow</button>
+  <button class="tab-btn" data-tab="testing">Testing &amp; Lab Performance</button>
+</nav>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <label class="group-label">Case finding</label>
+    <div class="btn-group" data-filter="caseType">
+      <button class="active" data-value="all">All</button>
+      <button data-value="acf">ACF</button>
+      <button data-value="icf">ICF</button>
+    </div>
+  </div>
+  <div class="filter-group">
+    <label class="group-label">Symptom status</label>
+    <div class="btn-group" data-filter="symptomStatus">
+      <button class="active" data-value="all">All</button>
+      <button data-value="yes">Symptomatic</button>
+      <button data-value="no">Asymptomatic</button>
+    </div>
+  </div>
+  <div class="filter-group">
+    <label class="group-label">District</label>
+    <div class="district-check">
+      <label><input type="checkbox" class="district-cb" value="patna" checked> Patna</label>
+      <label><input type="checkbox" class="district-cb" value="siwan" checked> Siwan</label>
+      <label><input type="checkbox" class="district-cb" value="solapur" checked> Solapur</label>
+      <label><input type="checkbox" class="district-cb" value="pcmc" checked> Pune (PCMC)</label>
+    </div>
+  </div>
+  <div class="filter-group">
+    <label class="group-label">Date range (registration date)</label>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <input type="date" id="dateStart">
+      <span style="font-size:12px; color:var(--muted);">to</span>
+      <input type="date" id="dateEnd">
+      <button id="clearDates" style="border:1px solid var(--border); background:#fff; border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer;">Clear</button>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<div class="assumption-banner" style="max-width:1400px; margin:16px auto 0;">
+  <strong>TAT data source:</strong> turnaround-time calculations use the precise timestamps recorded in the Sample Collection, PCR Testing,
+  and NAAT Testing form submissions (deduplicated to the latest submission per case) rather than the case-level date fields, which can lose
+  time-of-day precision on export.
+</div>
+
+<div id="dashboardContent" style="display:block; max-width:1400px; margin:0 auto;">
+
+
+  <div class="tab-content active" id="tab-overview">
+    <div class="kpi-row" id="overviewKpis"></div>
+
+    <section class="panel">
+      <h2>Testing summary by patient group</h2>
+      <p class="desc">RT-PCR and NAAT results, broken out by Symptomatic, Asymptomatic, and Total.</p>
+      <div id="overviewTestSummary"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Trend over time</h2>
+      <p class="desc">How a metric moves across the study period, respecting the filters above. Count metrics are bucketed by their own event date (falling back to registration date when that timestamp is missing); rate and turnaround metrics are bucketed by registration date. The exact date basis for the selected metric is shown beneath the chart.</p>
+      <div class="trend-controls">
+        <div class="trend-group" id="trendMetricGroup">
+          <button data-metric="enrollments" class="active">Enrollments</button>
+          <button data-metric="collected">Samples collected</button>
+          <button data-metric="tests">Tests completed</button>
+          <button data-metric="positivity">Positivity rate</button>
+          <button data-metric="rif">Rif resistance rate</button>
+          <button data-metric="tat">Median lab TAT</button>
+        </div>
+        <div class="trend-group" id="trendGranGroup">
+          <button data-gran="day">Day</button>
+          <button data-gran="week" class="active">Week</button>
+          <button data-gran="month">Month</button>
+        </div>
+      </div>
+      <div id="trendChart"></div>
+      <div id="trendBasis" class="trend-basis"></div>
+      <div class="legend" id="trendLegend"></div>
+    </section>
+
+    <section class="panel">
+      <h2>What each tab covers</h2>
+      <p class="desc" style="margin-bottom:0;">
+        <strong>Screening &amp; Sample Collection Flow</strong> — patient flow from enrollment through treatment, with test results attached at each testing branch.<br>
+        <strong>Testing &amp; Lab Performance</strong> — utilization, positivity, Rif cascade, turnaround time, and data-quality indicators, grouped into clusters.
+      </p>
+    </section>
+  </div>
+
+  <div class="tab-content" id="tab-funnel">
+    <section class="panel">
+      <h2>Screening &amp; sample collection flow</h2>
+      <p class="desc">Each box shows the number of patients who reached that stage. Each arrow shows how many were lost between the two stages it connects.</p>
+      <div id="flowChart"></div>
+      <div class="assumption-banner" id="anomalyFootnote" style="margin-top:14px;"></div>
+    </section>
+    <section class="panel">
+      <h2>PCR vs NAAT concordance</h2>
+      <p class="desc">Whether the two tests agree, split by symptomatic vs. asymptomatic pathway. Asymptomatic uses the strict definition (symptom status “no”); patients not yet screened appear only in the Overall matrix.</p>
+      <div class="assumption-banner" style="margin-bottom:14px;">
+        <strong>Note:</strong> the Positive/Negative/Invalid tables above (in the flowchart) count every patient with that result, whether or not the other test was also done. These matrices only include patients tested on <strong>both</strong> PCR and NAAT \u2014 so a matrix row/column total will be lower than the matching result-table number whenever some patients only had one of the two tests done. The gap is exactly the "single-test-only" count shown in the footnote under each matrix.
+      </div>
+      <div id="concordanceTable"></div>
+    </section>
+    <section class="panel">
+      <h2>Discordance resolution</h2>
+      <p class="desc">How the discordant PCR/NAAT pairs from the matrices above were followed up with repeat testing, and what the repeats showed. Each discordant pair is grouped by which test(s) were repeated, then classified by outcome.</p>
+      <div id="discResolutionChart"></div>
+      <p class="desc" id="discResolutionNote" style="margin-top:10px;"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Rif resistance testing (of NAAT positives)</h2>
+      <p class="desc">Rifampicin-resistance cascade, combining both the symptomatic and asymptomatic NAAT-positive arms. Asymptomatic uses the strict definition (symptom status “no”); not-yet-screened NAAT-positives appear only in the Overall row.</p>
+      <div id="rifTable"></div>
+    </section>
+  </div>
+
+  <div class="tab-content" id="tab-testing">
+    <div class="assumption-banner">
+      NAAT does not have a separate "received by lab" timestamp in the form, so <strong>NAAT Lab TAT</strong> is measured from test start to result, while <strong>PCR Lab TAT</strong> is measured from sample-received-by-lab to result. Keep this in mind when comparing the two directly.
+    </div>
+
+    <section class="panel">
+      <h2>A. Utilization &amp; positivity</h2>
+      <p class="desc">Utilization = tested / eligible (symptomatic + asymptomatic with abnormal CXR). Positivity = positive / valid results.</p>
+      <div class="cluster-grid" id="clusterA"></div>
+    </section>
+
+    <section class="panel">
+      <h2>B. Rif cascade (of NAAT positives)</h2>
+      <p class="desc">Rifampicin-resistance testing cascade, calculated off NAAT-positive patients only — there is no Rif step under PCR in this app.</p>
+      <div class="cluster-grid" id="clusterC"></div>
+    </section>
+
+    <section class="panel">
+      <h2>C. Turnaround time (TAT)</h2>
+      <p class="desc">How the whole caseload is distributed, not just the fastest results. Patient TAT = sputum collection &rarr; result; lab TAT = sample received (PCR) / test start (NAAT) &rarr; result. Medians are shown as cards; the bars show the full spread across all results.</p>
+      <div class="cluster-grid" id="tatMedians"></div>
+      <div class="tat-hist-grid" style="margin-top:18px;">
+        <div class="tat-hist"><div class="tat-hist-title">RT-PCR &mdash; patient TAT</div><div id="tatHistPcrPatient"></div></div>
+        <div class="tat-hist"><div class="tat-hist-title">NAAT &mdash; patient TAT</div><div id="tatHistNaatPatient"></div></div>
+        <div class="tat-hist"><div class="tat-hist-title">RT-PCR &mdash; lab TAT</div><div id="tatHistPcrLab"></div></div>
+        <div class="tat-hist"><div class="tat-hist-title">NAAT &mdash; lab TAT</div><div id="tatHistNaatLab"></div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>D. Data quality</h2>
+      <p class="desc">Discordance, resolution, and invalid/repeat-testing performance.</p>
+      <div class="cluster-grid" id="clusterE"></div>
+    </section>
+  </div>
+
+</div>
+</main>
+
+<script>
+// ---------- State ----------
+let RAW_ROWS = [];
+const filters = { caseType: 'all', symptomStatus: 'all', districts: new Set(['patna','siwan','solapur','pcmc']), dateStart: null, dateEnd: null };
+
+// ---------- Helpers ----------
+function parseDateTime(v) { if (!v) return null; const d = new Date(v); return isNaN(d.getTime()) ? null : d; }
+function hoursBetween(a, b) { if (!a || !b) return null; const diff = (b.getTime() - a.getTime()) / 36e5; return isNaN(diff) ? null : diff; }
+function median(arr) {
+  const vals = arr.filter(v => v !== null && v !== undefined && !isNaN(v)).sort((a,b)=>a-b);
+  if (!vals.length) return null;
+  const mid = Math.floor(vals.length/2);
+  return vals.length % 2 ? vals[mid] : (vals[mid-1]+vals[mid])/2;
+}
+function pct(num, den) { if (!den) return null; return (num/den)*100; }
+function fmtPct(v) { return v === null ? '—' : v.toFixed(1) + '%'; }
+function fmtNum(v) { return v === null ? '—' : Math.round(v).toLocaleString(); }
+function fmtHrs(v) { return v === null ? '—' : v.toFixed(1) + 'h'; }
+function isYes(v) { return (v||'').toLowerCase() === 'yes'; }
+function isPositive(v) { return (v||'').toLowerCase() === 'positive'; }
+function isInvalid(v) { return (v||'').toLowerCase() === 'invalid'; }
+function isValidResult(v) { v=(v||'').toLowerCase(); return v==='positive'||v==='negative'; }
+
+function applyFilters(rows) {
+  return rows.filter(r => {
+    if (filters.caseType !== 'all' && (r.type_of_case_finding||'').toLowerCase() !== filters.caseType) return false;
+    if (filters.symptomStatus !== 'all' && (r.has_symptom||'').toLowerCase() !== filters.symptomStatus) return false;
+    if (filters.districts.size > 0 && !filters.districts.has((r.camp_location||'').toLowerCase())) return false;
+    if (filters.dateStart || filters.dateEnd) {
+      const d = parseDateTime(r.date_of_registration);
+      if (!d) return false;
+      if (filters.dateStart && d < filters.dateStart) return false;
+      if (filters.dateEnd && d > filters.dateEnd) return false;
+    }
+    return true;
+  });
+}
+
+function computeFunnel(rows) {
+  const enrolled = rows.length;
+  const symptomatic = rows.filter(r => isYes(r.has_symptom));
+  const asymptomatic = rows.filter(r => (r.has_symptom||'').toLowerCase() === 'no');
+  const symptomPending = rows.filter(r => { const v=(r.has_symptom||'').toLowerCase(); return v!=='yes' && v!=='no'; });
+  const xrayAbnormal = asymptomatic.filter(r => isYes(r.xray_abnormal));
+  const xrayNormal = asymptomatic.filter(r => !isYes(r.xray_abnormal) && isYes(r.was_cxr_taken));
+  const xrayPending = asymptomatic.filter(r => !isYes(r.xray_abnormal) && !isYes(r.was_cxr_taken));
+  const eligible = rows.filter(r => isYes(r.has_symptom) || isYes(r.xray_abnormal));
+  const collected = eligible.filter(r => isYes(r.sputum_collected));
+  const notCollected = eligible.filter(r => !isYes(r.sputum_collected));
+  const tested = collected.filter(r => r.pcr_result || r.naat_result);
+  const notTested = collected.filter(r => !(r.pcr_result || r.naat_result));
+  const positive = tested.filter(r => isPositive(r.pcr_result) || isPositive(r.naat_result));
+  const negative = tested.filter(r => !isPositive(r.pcr_result) && !isPositive(r.naat_result));
+  const treated = positive.filter(r => isYes(r.decision_to_treat_as_tb));
+  const notTreated = positive.filter(r => !isYes(r.decision_to_treat_as_tb));
+  return { enrolled, symptomatic: symptomatic.length, asymptomatic: asymptomatic.length, symptomPending: symptomPending.length,
+    xrayAbnormal: xrayAbnormal.length, xrayNormal: xrayNormal.length, xrayPending: xrayPending.length, eligible: eligible.length,
+    collected: collected.length, notCollected: notCollected.length, tested: tested.length,
+    notTested: notTested.length, positive: positive.length, negative: negative.length,
+    treated: treated.length, notTreated: notTreated.length,
+    symptomaticCollected: symptomatic.filter(r=>isYes(r.sputum_collected)).length,
+    symptomaticNotCollected: symptomatic.filter(r=>!isYes(r.sputum_collected)).length,
+    abnormalCollected: xrayAbnormal.filter(r=>isYes(r.sputum_collected)).length,
+    abnormalNotCollected: xrayAbnormal.filter(r=>!isYes(r.sputum_collected)).length,
+  };
+}
+
+function computeTAT(rows) {
+  const pcrLab=[], pcrPatient=[], naatLab=[], naatPatient=[];
+  rows.forEach(r => {
+    const collected = parseDateTime(r.tat_sputum_collection);
+    const pcrReceived = parseDateTime(r.tat_pcr_received);
+    const pcrResultTime = parseDateTime(r.tat_pcr_result);
+    const naatStart = parseDateTime(r.tat_naat_start);
+    const naatResultTime = parseDateTime(r.tat_naat_result);
+    const h1 = hoursBetween(pcrReceived, pcrResultTime); if (h1!==null) pcrLab.push(h1);
+    const h2 = hoursBetween(collected, pcrResultTime); if (h2!==null) pcrPatient.push(h2);
+    const h3 = hoursBetween(naatStart, naatResultTime); if (h3!==null) naatLab.push(h3);
+    const h4 = hoursBetween(collected, naatResultTime); if (h4!==null) naatPatient.push(h4);
+  });
+  return {
+    pcrLab, pcrPatient, naatLab, naatPatient,
+    pcrLabMedian: median(pcrLab), pcrPatientMedian: median(pcrPatient),
+    naatLabMedian: median(naatLab), naatPatientMedian: median(naatPatient),
+  };
+}
+
+function computeClusters(rows) {
+  const funnel = computeFunnel(rows);
+  const eligible = funnel.eligible;
+  const pcrValid = rows.filter(r => isValidResult(r.pcr_result));
+  const naatValid = rows.filter(r => isValidResult(r.naat_result));
+  const pcrTested = rows.filter(r => r.pcr_result);
+  const naatTested = rows.filter(r => isYes(r.naat_done) || r.naat_result);
+  const pcrOnlyYield = rows.filter(r => isPositive(r.pcr_result) && (r.naat_result||'').toLowerCase()==='negative').length;
+  const naatOnlyYield = rows.filter(r => isPositive(r.naat_result) && (r.pcr_result||'').toLowerCase()==='negative').length;
+  const naatPositive = rows.filter(r => isPositive(r.naat_result));
+  const rifTested = naatPositive.filter(r => isYes(r.rif_test_completed));
+  const rifIndeterminate = rifTested.filter(r => (r.result_of_rif_test||'').toLowerCase()==='rif_indeterminate');
+  const rifResistant = naatPositive.filter(r => (r.result_of_rif_test||'').toLowerCase()==='resistance_detected');
+  const rifSensitive = naatPositive.filter(r => (r.result_of_rif_test||'').toLowerCase()==='resistance_not_detected');
+  const bothValid = rows.filter(r => isValidResult(r.pcr_result) && isValidResult(r.naat_result));
+  const discordant = bothValid.filter(r => (r.pcr_result||'').toLowerCase() !== (r.naat_result||'').toLowerCase());
+  const discordantResolved = discordant.filter(r => {
+    const rp=(r.result_of_repeat_pcr_test||'').toLowerCase(), rn=(r.result_of_repeat_naat_test||'').toLowerCase();
+    const pcr=(r.pcr_result||'').toLowerCase(), naat=(r.naat_result||'').toLowerCase();
+    return (rp && rp===naat) || (rn && rn===pcr);
+  });
+  const pcrInvalidInitial = rows.filter(r => isInvalid(r.pcr_result));
+  const naatInvalidInitial = rows.filter(r => isInvalid(r.naat_result));
+  const pcrInvalidRepeated = pcrInvalidInitial.filter(r => isValidResult(r.result_of_repeat_pcr_test));
+  const naatInvalidRepeated = naatInvalidInitial.filter(r => isValidResult(r.result_of_repeat_naat_test));
+  return {
+    pcrUtilization: pct(pcrTested.length, eligible), naatUtilization: pct(naatTested.length, eligible),
+    pcrPositivity: pct(rows.filter(r=>isPositive(r.pcr_result)).length, pcrValid.length),
+    naatPositivity: pct(naatPositive.length, naatValid.length),
+    pcrOnlyYield, naatOnlyYield,
+    rifTestingRate: pct(rifTested.length, naatPositive.length),
+    indeterminateRifRate: pct(rifIndeterminate.length, rifTested.length),
+    rifResistantRate: pct(rifResistant.length, naatPositive.length),
+    rifSensitiveRate: pct(rifSensitive.length, naatPositive.length),
+    discordanceRate: pct(discordant.length, bothValid.length),
+    discordanceResolutionRate: pct(discordantResolved.length, discordant.length),
+    pcrInvalidRate: pct(pcrInvalidInitial.length, pcrTested.length),
+    naatInvalidRate: pct(naatInvalidInitial.length, naatTested.length),
+    pcrSuccessfulRepeatRate: pct(pcrInvalidRepeated.length, pcrInvalidInitial.length),
+    naatSuccessfulRepeatRate: pct(naatInvalidRepeated.length, naatInvalidInitial.length),
+  };
+}
+
+// ---------- Rendering ----------
+function kpiCard(val, lbl, opts) {
+  opts = opts || {};
+  const pct = opts.pct ? `<div class="pct">(${opts.pct})</div>` : '';
+  const def = opts.def ? `<div class="def">${opts.def}</div>` : '';
+  const note = opts.note ? `<div class="note">${opts.note}</div>` : '';
+  return `<div class="kpi-card ${opts.cls||''}"><div class="val">${val}</div>${pct}<div class="lbl">${lbl}</div>${def}${note}</div>`;
+}
+function metricTile(name, num, cls) {
+  return `<div class="metric-tile ${cls||''}"><div class="name">${name}</div><div class="num">${num}</div></div>`;
+}
+
+/* ---------- Trend over time (Overview) ---------- */
+const trendState = { metric: 'enrollments', gran: 'week' };
+
+function trendDate(v){
+  if(!v) return null;
+  const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(!m){ const d=new Date(v); return isNaN(d.getTime())?null:d; }
+  return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+}
+function trendBucketKey(d,gran){
+  if(!d) return null;
+  const y=d.getFullYear(),mo=d.getMonth()+1,da=d.getDate();
+  if(gran==='day') return `${y}-${String(mo).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+  if(gran==='month') return `${y}-${String(mo).padStart(2,'0')}`;
+  const dt=new Date(y,mo-1,da); const off=(dt.getDay()+6)%7; dt.setDate(dt.getDate()-off);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function trendLabel(key,gran){
+  const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const p=key.split('-');
+  if(gran==='month') return mon[+p[1]-1]+' '+p[0];
+  return mon[+p[1]-1]+' '+(+p[2]);
+}
+
+function computeTrend(rows,metric,gran){
+  const reg=r=>trendDate(r.date_of_registration);
+  const keys=new Set();
+  let series=[], basis='', note='';
+  const NAVY='#003E78', TURQ='#117996', GOLD='#F3B71B', CORAL='#D85A30';
+
+  function accumCount(pred,dateFn){
+    const acc={};
+    rows.forEach(r=>{ if(!pred(r)) return; const k=trendBucketKey(dateFn(r),gran); if(!k) return; keys.add(k); acc[k]=(acc[k]||0)+1; });
+    return acc;
+  }
+
+  if(metric==='enrollments'){
+    basis='Registration date';
+    series=[{name:'Enrollments',color:NAVY,kind:'count',acc:accumCount(()=>true, r=>reg(r))}];
+  } else if(metric==='collected'){
+    basis='Sample collection date · registration date when the collection time is missing';
+    series=[{name:'Samples collected',color:TURQ,kind:'count',acc:accumCount(r=>isYes(r.sputum_collected), r=>trendDate(r.tat_sputum_collection)||reg(r))}];
+  } else if(metric==='tests'){
+    basis='Test result date per test type · registration date when the result time is missing';
+    const p=accumCount(r=>!!r.pcr_result, r=>trendDate(r.tat_pcr_result)||reg(r));
+    const n=accumCount(r=>!!r.naat_result, r=>trendDate(r.tat_naat_result)||reg(r));
+    series=[{name:'RT-PCR tests',color:TURQ,kind:'count',acc:p},{name:'NAAT tests',color:GOLD,kind:'count',acc:n}];
+  } else if(metric==='positivity'){
+    basis='Registration date (derived rate)';
+    const pP={},pV={},nP={},nV={};
+    rows.forEach(r=>{ const k=trendBucketKey(reg(r),gran); if(!k) return; keys.add(k);
+      if(isValidResult(r.pcr_result)){ pV[k]=(pV[k]||0)+1; if(isPositive(r.pcr_result)) pP[k]=(pP[k]||0)+1; }
+      if(isValidResult(r.naat_result)){ nV[k]=(nV[k]||0)+1; if(isPositive(r.naat_result)) nP[k]=(nP[k]||0)+1; }
+    });
+    series=[{name:'RT-PCR positivity',color:TURQ,kind:'pct',rate:{num:pP,den:pV}},
+            {name:'NAAT positivity',color:GOLD,kind:'pct',rate:{num:nP,den:nV}}];
+  } else if(metric==='rif'){
+    basis='Registration date (derived rate)';
+    note='Rif resistance is denominated on NAAT-positive patients; counts per period are small, so this line is sparse.';
+    const num={},den={};
+    rows.forEach(r=>{ if(!isPositive(r.naat_result)) return; const k=trendBucketKey(reg(r),gran); if(!k) return; keys.add(k);
+      den[k]=(den[k]||0)+1; if((r.result_of_rif_test||'').toLowerCase()==='resistance_detected') num[k]=(num[k]||0)+1; });
+    series=[{name:'Rif resistance rate',color:CORAL,kind:'pct',rate:{num,den}}];
+  } else if(metric==='tat'){
+    basis='Registration date (derived; median lab turnaround)';
+    note='Median lab TAT for patients enrolled in each period (PCR = sample received \u2192 result; NAAT = test start \u2192 result).';
+    const pcr={},naat={};
+    rows.forEach(r=>{ const k=trendBucketKey(reg(r),gran); if(!k) return;
+      const hp=hoursBetween(parseDateTime(r.tat_pcr_received),parseDateTime(r.tat_pcr_result));
+      const hn=hoursBetween(parseDateTime(r.tat_naat_start),parseDateTime(r.tat_naat_result));
+      if(hp!==null){ keys.add(k); (pcr[k]=pcr[k]||[]).push(hp); }
+      if(hn!==null){ keys.add(k); (naat[k]=naat[k]||[]).push(hn); }
+    });
+    series=[{name:'RT-PCR lab TAT (median h)',color:TURQ,kind:'hrs',arr:pcr},
+            {name:'NAAT lab TAT (median h)',color:GOLD,kind:'hrs',arr:naat}];
+  }
+
+  const buckets=[...keys].sort();
+  series.forEach(s=>{
+    s.values={};
+    buckets.forEach(k=>{
+      if(s.kind==='count') s.values[k]=(s.acc[k]||0);
+      else if(s.kind==='pct'){ const d=s.rate.den[k]||0; s.values[k]= d? (100*(s.rate.num[k]||0)/d) : null; }
+      else if(s.kind==='hrs'){ s.values[k]=median(s.arr[k]||[]); }
+    });
+  });
+  const kind = series.length? series[0].kind : 'count';
+  return { buckets, series, basis, note, kind };
+}
+
+function renderTrend(rows){
+  const el=document.getElementById('trendChart'); if(!el) return; el.innerHTML='';
+  const legEl=document.getElementById('trendLegend'); legEl.innerHTML='';
+  const basisEl=document.getElementById('trendBasis'); basisEl.innerHTML='';
+  const t=computeTrend(rows,trendState.metric,trendState.gran);
+  if(!t.buckets.length){ el.innerHTML='<p style="color:#999;font-size:13px;">No data for the current metric and filters.</p>'; return; }
+
+  const width=el.clientWidth||900, height=320, margin={top:16,right:24,bottom:52,left:54};
+  const x=d3.scalePoint().domain(t.buckets).range([margin.left,width-margin.right]).padding(0.5);
+  let maxV=0; t.series.forEach(s=>t.buckets.forEach(k=>{ const v=s.values[k]; if(v!=null&&v>maxV) maxV=v; }));
+  if(t.kind==='pct') maxV=Math.max(maxV,5);
+  const y=d3.scaleLinear().domain([0,(maxV||1)*1.12]).nice().range([height-margin.bottom,margin.top]);
+
+  const svg=d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${width} ${height}`);
+  const yAxis=d3.axisLeft(y).ticks(5).tickFormat(d=> t.kind==='pct'? d+'%' : (t.kind==='hrs'? d+'h' : d));
+  svg.append('g').attr('transform',`translate(${margin.left},0)`).call(yAxis)
+     .call(g=>g.selectAll('.tick line').clone().attr('x2',width-margin.right-margin.left).attr('stroke','#EEE'))
+     .call(g=>g.select('.domain').remove())
+     .selectAll('text').attr('font-size',11).attr('fill','#5F5E5A');
+  const step=Math.max(1,Math.ceil(t.buckets.length/12));
+  const xAxis=d3.axisBottom(x).tickValues(t.buckets.filter((_,i)=>i%step===0)).tickFormat(k=>trendLabel(k,trendState.gran));
+  svg.append('g').attr('transform',`translate(0,${height-margin.bottom})`).call(xAxis)
+     .call(g=>g.select('.domain').attr('stroke','#CCC'))
+     .selectAll('text').attr('font-size',10.5).attr('fill','#5F5E5A').attr('transform','rotate(-32)').attr('text-anchor','end');
+
+  // hover tooltip (x + y for each point)
+  el.style.position='relative';
+  const tip=document.createElement('div'); tip.className='trend-tip'; tip.style.display='none'; el.appendChild(tip);
+  const fmtY=v => t.kind==='pct' ? v.toFixed(1)+'%' : (t.kind==='hrs' ? v.toFixed(1)+' h' : Math.round(v).toLocaleString());
+
+  const line=d3.line().defined(d=>d.v!=null).x(d=>x(d.k)).y(d=>y(d.v));
+  t.series.forEach(s=>{
+    const pts=t.buckets.map(k=>({k,v:s.values[k]}));
+    svg.append('path').datum(pts).attr('fill','none').attr('stroke',s.color).attr('stroke-width',2.2).attr('d',line);
+    svg.append('g').selectAll('circle').data(pts.filter(d=>d.v!=null)).join('circle')
+       .attr('cx',d=>x(d.k)).attr('cy',d=>y(d.v)).attr('r',3.2).attr('fill',s.color)
+       .style('cursor','pointer')
+       .on('mouseenter',function(){ d3.select(this).attr('r',5.5); tip.style.display='block'; })
+       .on('mousemove',function(event,d){ const pt=d3.pointer(event, el);
+         tip.innerHTML='<span style=\"color:'+s.color+';font-size:10px;\">\u25cf</span> '+s.name+'<br><b>'+trendLabel(d.k,trendState.gran)+'</b>: '+fmtY(d.v);
+         tip.style.left=Math.min(pt[0]+14, el.clientWidth-170)+'px'; tip.style.top=Math.max(0,pt[1]-14)+'px'; })
+       .on('mouseleave',function(){ d3.select(this).attr('r',3.2); tip.style.display='none'; });
+  });
+  legEl.innerHTML=t.series.map(s=>`<span><span class="sw" style="background:${s.color}"></span> ${s.name}</span>`).join('');
+  basisEl.innerHTML='<strong>Bucketed by:</strong> '+t.basis + (t.note? ' &middot; '+t.note : '');
+}
+
+(function wireTrendControls(){
+  const mg=document.getElementById('trendMetricGroup'), gg=document.getElementById('trendGranGroup');
+  if(mg) mg.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+    mg.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    trendState.metric=btn.dataset.metric; renderTrend(applyFilters(RAW_ROWS));
+  }));
+  if(gg) gg.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+    gg.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    trendState.gran=btn.dataset.gran; renderTrend(applyFilters(RAW_ROWS));
+  }));
+})();
+
+
+/* ---------- Discordance resolution (visual) ---------- */
+function computeDiscResolution(rows){
+  const lowL=v=>(v||'').toLowerCase();
+  const isValid=v=>lowL(v)==='positive'||lowL(v)==='negative';
+  const isPresent=v=>['positive','negative','invalid'].includes(lowL(v));
+  const disc=rows.filter(r=>isValid(r.pcr_result)&&isValid(r.naat_result)&&lowL(r.pcr_result)!==lowL(r.naat_result));
+  function branchOf(r){
+    const rp=isPresent(r.result_of_repeat_pcr_test), rn=isPresent(r.result_of_repeat_naat_test);
+    if(rp&&rn) return 'both';
+    if(rn&&!rp) return 'only_naat';
+    if(rp&&!rn) return 'only_pcr';
+    return 'none';
+  }
+  function outcomeOf(r,b){
+    const op=lowL(r.pcr_result), on=lowL(r.naat_result);
+    let np,nn;
+    if(b==='both'){ np=lowL(r.result_of_repeat_pcr_test); nn=lowL(r.result_of_repeat_naat_test); }
+    else if(b==='only_naat'){ np=op; nn=lowL(r.result_of_repeat_naat_test); }
+    else if(b==='only_pcr'){ np=lowL(r.result_of_repeat_pcr_test); nn=on; }
+    if(!['positive','negative'].includes(np)||!['positive','negative'].includes(nn)) return 'unresolved';
+    if(np===nn) return 'resolved';
+    if(np===op&&nn===on) return 'same';
+    return 'different';
+  }
+  const out={total:disc.length, none:0, branches:{}};
+  ['both','only_naat','only_pcr'].forEach(b=>out.branches[b]={n:0,resolved:0,same:0,different:0,unresolved:0});
+  disc.forEach(r=>{ const b=branchOf(r); if(b==='none'){ out.none++; return; } out.branches[b].n++; out.branches[b][outcomeOf(r,b)]++; });
+  return out;
+}
+
+function miniKVTableSVG(x,y,rowsKV,w,rowH){
+  w=w||400; rowH=rowH||32; const labelW=Math.round(w*0.66);
+  let out='';
+  rowsKV.forEach(([label,val],i)=>{
+    const ry=y+i*rowH;
+    out+=`<rect x="${x}" y="${ry}" width="${labelW}" height="${rowH}" fill="#003E78" stroke="#0a2a4a" stroke-width="0.5"/>
+    <text x="${x+12}" y="${ry+rowH/2}" dominant-baseline="central" font-size="12" font-weight="600" fill="#fff">${label}</text>
+    <rect x="${x+labelW}" y="${ry}" width="${w-labelW}" height="${rowH}" fill="#C5EEF5" stroke="#0a2a4a" stroke-width="0.5"/>
+    <text x="${x+labelW+(w-labelW)/2}" y="${ry+rowH/2}" text-anchor="middle" dominant-baseline="central" font-size="12.5" font-weight="700" fill="#0c447c">${val}</text>`;
+  });
+  return out;
+}
+
+function renderDiscResolution(rows){
+  const el=document.getElementById('discResolutionChart'); if(!el) return;
+  const note=document.getElementById('discResolutionNote');
+  const d=computeDiscResolution(rows);
+  if(!d.total){
+    el.innerHTML='<p style="color:#999;font-size:13px;">No discordant PCR/NAAT pairs for the current filters.</p>';
+    if(note) note.innerHTML='';
+    return;
+  }
+  const W=1160,H=470, bx=440, bw=260, bh=96, tx=730, tw=400, spineX=410, ys=[14,187,360];
+  const meta=[['both','Both NAAT & PCR repeated'],['only_naat','Only NAAT repeated'],['only_pcr','Only RT-PCR repeated']];
+  let svg=`<svg width="100%" viewBox="0 0 ${W} ${H}" style="font-family:inherit;">
+    <defs><marker id="drArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0C447C"/></marker></defs>`;
+  svg+=flowBox(20,190,300,90,'Discordant results',d.total);
+  svg+=`<path d="M320 235 H${spineX}" stroke="#0C447C" stroke-width="1.5" fill="none"/>`;
+  svg+=`<path d="M${spineX} ${ys[0]+bh/2} V${ys[2]+bh/2}" stroke="#0C447C" stroke-width="1.5" fill="none"/>`;
+  svg+=`<text x="362" y="224" text-anchor="middle" font-size="12.5" font-style="italic" font-weight="700" fill="#D85A30">\u2212(${d.none})</text>`;
+  meta.forEach(([key,label],i)=>{
+    const cy=ys[i]+bh/2, b=d.branches[key];
+    svg+=`<path d="M${spineX} ${cy} H${bx}" stroke="#0C447C" stroke-width="1.5" fill="none" marker-end="url(#drArrow)"/>`;
+    svg+=flowBox(bx,ys[i],bw,bh,label,b.n);
+    svg+=miniKVTableSVG(tx,ys[i],[['Discordance resolved',b.resolved],['Discordance not resolved',b.n-b.resolved]],tw,bh/2);
+  });
+  svg+='</svg>';
+  el.innerHTML=svg;
+  if(note){
+    note.innerHTML='The \u2212('+d.none+') on the arrow is the number of discordant pairs with no repeat test done, so they leave the resolution process. '+
+      '<strong>Discordance resolved</strong> = after the repeat, the RT-PCR and NAAT results agree (both positive or both negative). '+
+      '<strong>Discordance not resolved</strong> = the two tests still disagree (or a repeat came back invalid).';
+  }
+}
+
+
+
+function renderTatHist(elId, hours, color){
+  const el=document.getElementById(elId); if(!el) return; el.innerHTML='';
+  const edges=[0,6,12,24,48,72,96,Infinity];
+  const labels=['0\u20136h','6\u201312h','12\u201324h','24\u201348h','48\u201372h','72\u201396h','96h+'];
+  const data=(hours||[]).filter(h=>h!=null && h>=0);
+  if(!data.length){ el.innerHTML='<p style="color:#999;font-size:12px;margin:8px 0;">No data for the current filters.</p>'; return; }
+  const counts=labels.map((_,i)=>data.filter(h=>h>=edges[i] && h<edges[i+1]).length);
+  const W=460,H=210,m={top:16,right:12,bottom:44,left:34};
+  const x=d3.scaleBand().domain(labels).range([m.left,W-m.right]).padding(0.18);
+  const maxC=Math.max(1,...counts);
+  const y=d3.scaleLinear().domain([0,maxC*1.14]).nice().range([H-m.bottom,m.top]);
+  const svg=d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`);
+  svg.append('g').attr('transform',`translate(${m.left},0)`).call(d3.axisLeft(y).ticks(4).tickFormat(d3.format('d')))
+     .call(g=>g.selectAll('.tick line').clone().attr('x2',W-m.right-m.left).attr('stroke','#EEE'))
+     .call(g=>g.select('.domain').remove()).selectAll('text').attr('font-size',10).attr('fill','#5F5E5A');
+  svg.append('g').attr('transform',`translate(0,${H-m.bottom})`).call(d3.axisBottom(x))
+     .call(g=>g.select('.domain').attr('stroke','#CCC'))
+     .selectAll('text').attr('font-size',9.5).attr('fill','#5F5E5A').attr('transform','rotate(-28)').attr('text-anchor','end');
+  svg.append('g').selectAll('rect').data(counts).join('rect')
+     .attr('x',(d,i)=>x(labels[i])).attr('width',x.bandwidth())
+     .attr('y',d=>y(d)).attr('height',d=>y(0)-y(d)).attr('fill',color).attr('rx',2);
+  svg.append('g').selectAll('text.v').data(counts).join('text').attr('class','v')
+     .attr('x',(d,i)=>x(labels[i])+x.bandwidth()/2).attr('y',d=>y(d)-4)
+     .attr('text-anchor','middle').attr('font-size',10).attr('fill','#333').text(d=>d||'');
+}
+
+function renderAll() {
+  const filtered = applyFilters(RAW_ROWS);
+  const funnel = computeFunnel(filtered);
+  const tat = computeTAT(filtered);
+  const clusters = computeClusters(filtered);
+
+  document.getElementById('rowCountPill').textContent = filtered.length.toLocaleString() + ' of ' + RAW_ROWS.length.toLocaleString() + ' records';
+
+  // Overview
+  const lowK = v => (v||'').toLowerCase();
+  const screened = filtered.filter(r => r.has_risk && r.has_symptom).length;
+  const cxrEligible = filtered.filter(r => lowK(r.xray_eligible) === 'yes').length;
+  const cxrResult = filtered.filter(r => r.result_of_xray).length;
+  const cxrEligResult = filtered.filter(r => lowK(r.xray_eligible) === 'yes' && r.result_of_xray).length;
+  const cxrExtra = cxrResult - cxrEligResult;
+  const pcrTested = filtered.filter(r => r.pcr_result).length;
+  const naatTested = filtered.filter(r => isYes(r.naat_done) || r.naat_result).length;
+  const cxrNote = cxrEligible
+    ? `Only ${cxrEligible} asymptomatic patients were CXR-eligible, of which ${cxrEligResult} had a CXR result. The other ${cxrExtra} are symptomatic patients with a CXR result anyway.`
+    : '';
+  document.getElementById('overviewKpis').innerHTML =
+    kpiCard(fmtNum(funnel.enrolled), 'Enrolled', {def: 'Every patient registered at the camp.'}) +
+    kpiCard(fmtNum(screened), 'Screening completed', {pct: `${fmtPct(pct(screened, funnel.enrolled))} of enrolled`, def: 'Patients with both symptom and risk-factor screening recorded, as a share of all enrolled.'}) +
+    kpiCard(fmtNum(cxrResult), 'CXR completed', {pct: `${cxrEligible ? fmtPct(pct(cxrEligResult, cxrEligible)) + ' of CXR-eligible' : 'no CXR-eligible'}`, def: 'Patients with a chest X-ray result. CXR-eligible = asymptomatic patients (the group sent for X-ray).', note: cxrNote}) +
+    kpiCard(fmtNum(pcrTested), 'RT-PCR testing completed', {pct: `${fmtPct(pct(pcrTested, funnel.eligible))} of eligible`, cls: 'good', def: 'Patients with an RT-PCR result, as a share of testing-eligible patients. Eligible = symptomatic OR abnormal chest X-ray.'}) +
+    kpiCard(fmtNum(naatTested), 'NAAT testing completed', {pct: `${fmtPct(pct(naatTested, funnel.eligible))} of eligible`, cls: 'good', def: 'Patients with a NAAT result (or NAAT marked done), as a share of testing-eligible patients. Eligible = symptomatic OR abnormal chest X-ray.'}) +
+    kpiCard(fmtNum(funnel.positive), 'Overall positivity', {pct: `${fmtPct(pct(funnel.positive, funnel.tested))} of tested`, def: 'Patients positive on RT-PCR or NAAT, out of those tested. Tested = eligible patients who gave a sample and have a result.'});
+
+  renderFlowChart(filtered);
+  renderConcordanceTable(filtered);
+  renderDiscResolution(filtered);
+  renderRifTable(filtered);
+  renderOverviewTestSummary(filtered);
+  renderTrend(filtered);
+
+  // Cluster A
+  document.getElementById('clusterA').innerHTML =
+    metricTile('PCR utilization', fmtPct(clusters.pcrUtilization), 'pcr') +
+    metricTile('NAAT utilization', fmtPct(clusters.naatUtilization), 'naat') +
+    metricTile('PCR positivity', fmtPct(clusters.pcrPositivity), 'pcr') +
+    metricTile('NAAT positivity', fmtPct(clusters.naatPositivity), 'naat');
+  // Cluster C
+  document.getElementById('clusterC').innerHTML =
+    metricTile('Rif testing rate', fmtPct(clusters.rifTestingRate)) +
+    metricTile('Indeterminate Rif rate', fmtPct(clusters.indeterminateRifRate)) +
+    metricTile('Rif resistant rate', fmtPct(clusters.rifResistantRate)) +
+    metricTile('Rif sensitive rate', fmtPct(clusters.rifSensitiveRate));
+  // Cluster C — TAT: median cards + distribution histograms
+  const fmtH = m => (m==null ? '\u2014' : m.toFixed(1)+' h');
+  document.getElementById('tatMedians').innerHTML =
+    metricTile('RT-PCR lab TAT (median)', fmtH(tat.pcrLabMedian), 'pcr') +
+    metricTile('NAAT lab TAT (median)', fmtH(tat.naatLabMedian), 'naat') +
+    metricTile('RT-PCR patient TAT (median)', fmtH(tat.pcrPatientMedian), 'pcr') +
+    metricTile('NAAT patient TAT (median)', fmtH(tat.naatPatientMedian), 'naat');
+  renderTatHist('tatHistPcrPatient', tat.pcrPatient, '#117996');
+  renderTatHist('tatHistNaatPatient', tat.naatPatient, '#F3B71B');
+  renderTatHist('tatHistPcrLab', tat.pcrLab, '#117996');
+  renderTatHist('tatHistNaatLab', tat.naatLab, '#F3B71B');
+  // Cluster E
+  document.getElementById('clusterE').innerHTML =
+    metricTile('Discordance rate', fmtPct(clusters.discordanceRate)) +
+    metricTile('Discordance resolution rate', fmtPct(clusters.discordanceResolutionRate)) +
+    metricTile('PCR invalid rate', fmtPct(clusters.pcrInvalidRate), 'pcr') +
+    metricTile('NAAT invalid rate', fmtPct(clusters.naatInvalidRate), 'naat') +
+    metricTile('PCR successful repeat rate', fmtPct(clusters.pcrSuccessfulRepeatRate), 'pcr') +
+    metricTile('NAAT successful repeat rate', fmtPct(clusters.naatSuccessfulRepeatRate), 'naat');
+}
+
+// ---------- New static flow chart (replaces Sankey) ----------
+function computeFlowNumbers(rows) {
+  const isYesL = v => (v||'').toLowerCase() === 'yes';
+  const lowL = v => (v||'').toLowerCase();
+  const symptomatic = rows.filter(r => isYesL(r.has_symptom));
+  const asymptomatic = rows.filter(r => lowL(r.has_symptom) === 'no');
+  const notYetScreened = rows.filter(r => lowL(r.has_symptom) !== 'yes' && lowL(r.has_symptom) !== 'no');
+  const xrayAbnormal = asymptomatic.filter(r => isYesL(r.xray_abnormal));
+  const xrayNormal = asymptomatic.filter(r => !isYesL(r.xray_abnormal) && isYesL(r.was_cxr_taken));
+  const xrayPending = asymptomatic.filter(r => !isYesL(r.xray_abnormal) && !isYesL(r.was_cxr_taken));
+
+  const symCollected = symptomatic.filter(r => isYesL(r.sputum_collected));
+  const symNotCollected = symptomatic.filter(r => !isYesL(r.sputum_collected));
+  // Expected pathway: abnormal CXR -> collected. Leak = abnormal CXR not collected.
+  const abnNotCollected = xrayAbnormal.filter(r => !isYesL(r.sputum_collected));
+  // Addition = collected despite NOT being marked abnormal CXR (data-capture gap one stage earlier)
+  const abnCollectedAdded = asymptomatic.filter(r => !isYesL(r.xray_abnormal) && isYesL(r.sputum_collected)).length;
+  // Box = total asymptomatic patients actually collected, matching reality exactly
+  const abnCollectedRows = asymptomatic.filter(r => isYesL(r.sputum_collected));
+
+  // "Not tested" = collected but no result yet (subtraction on the arrow)
+  const symPcrNotDone = symCollected.filter(r => !r.pcr_result).length;
+  const symNaatNotDone = symCollected.filter(r => !r.naat_result).length;
+  const abnPcrNotDone = abnCollectedRows.filter(r => !r.pcr_result).length;
+  const abnNaatNotDone = abnCollectedRows.filter(r => !r.naat_result).length;
+
+  // "Additional" = has a result despite not being marked as collected (addition on the arrow)
+  const symPcrAdded = symptomatic.filter(r => !isYesL(r.sputum_collected) && r.pcr_result).length;
+  const symNaatAdded = symptomatic.filter(r => !isYesL(r.sputum_collected) && r.naat_result).length;
+  const abnPcrAdded = asymptomatic.filter(r => !isYesL(r.sputum_collected) && r.pcr_result).length;
+  const abnNaatAdded = asymptomatic.filter(r => !isYesL(r.sputum_collected) && r.naat_result).length;
+
+  // Box value = total patients with that result, matching the result table sums exactly
+  const symPcrDone = symptomatic.filter(r => r.pcr_result).length;
+  const symNaatDone = symptomatic.filter(r => r.naat_result).length;
+  const abnPcrDone = asymptomatic.filter(r => r.pcr_result).length;
+  const abnNaatDone = asymptomatic.filter(r => r.naat_result).length;
+
+  const isEligible = r => isYesL(r.has_symptom) || isYesL(r.xray_abnormal);
+  const isTested = r => !!(r.pcr_result || r.naat_result);
+  const testedWithoutForm = rows.filter(r => isEligible(r) && !isYesL(r.sputum_collected) && isTested(r)).length;
+  const testedNotScreened = rows.filter(r => !isEligible(r) && isTested(r)).length;
+
+  return {
+    enrolled: rows.length, symptomatic: symptomatic.length, asymptomatic: asymptomatic.length,
+    notYetScreened: notYetScreened.length, xrayAbnormal: xrayAbnormal.length, xrayNormal: xrayNormal.length,
+    xrayPending: xrayPending.length,
+    symCollected: symCollected.length, symNotCollected: symNotCollected.length,
+    abnCollected: abnCollectedRows.length, abnNotCollected: abnNotCollected.length, abnCollectedAdded,
+    symPcrDone, symPcrNotDone, symNaatDone, symNaatNotDone,
+    abnPcrDone, abnPcrNotDone, abnNaatDone, abnNaatNotDone,
+    symPcrAdded, symNaatAdded, abnPcrAdded, abnNaatAdded,
+    testedWithoutForm, testedNotScreened,
+  };
+}
+
+function flowBox(x, y, w, h, label, value, opts) {
+  opts = opts || {};
+  const fill = opts.fill || '#E6F1FB';
+  const stroke = opts.stroke || '#0C447C';
+  const textColor = opts.textColor || '#042C53';
+  return `<g>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="1"/>
+    <text x="${x+w/2}" y="${y+h/2-7}" text-anchor="middle" font-size="12" font-weight="600" fill="${textColor}">${label}</text>
+    <text x="${x+w/2}" y="${y+h/2+13}" text-anchor="middle" font-size="16" font-weight="700" fill="${textColor}">${value.toLocaleString()}</text>
+  </g>`;
+}
+function flowArrow(x1, y1, x2, y2, leakLabel) {
+  let path = `<path d="M${x1} ${y1} L${x2} ${y2}" stroke="#5F5E5A" stroke-width="1.5" fill="none" marker-end="url(#flowArrowHead)"/>`;
+  if (leakLabel) {
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    path += `<rect x="${mx-46}" y="${my-11}" width="92" height="20" fill="#FAECE7" stroke="#D85A30" stroke-width="0.5" rx="4"/>
+    <text x="${mx}" y="${my+3}" text-anchor="middle" font-size="10.5" fill="#4A1B0C">-${leakLabel}</text>`;
+  }
+  return path;
+}
+
+function miniResultTableSVG(x, y, pos, neg, inv, w) {
+  w = w || 190;
+  const rowH = 24;
+  const labelW = w * 0.55;
+  const rows = [['Positive', pos], ['Negative', neg], ['Invalid', inv]];
+  let out = '';
+  rows.forEach(([label, val], i) => {
+    const ry = y + i * rowH;
+    out += `<rect x="${x}" y="${ry}" width="${labelW}" height="${rowH}" fill="#003E78" stroke="#0a2a4a" stroke-width="0.5"/>
+    <text x="${x+10}" y="${ry+rowH/2}" dominant-baseline="central" font-size="11.5" font-weight="600" fill="#fff">${label}</text>
+    <rect x="${x+labelW}" y="${ry}" width="${w-labelW}" height="${rowH}" fill="#C5EEF5" stroke="#0a2a4a" stroke-width="0.5"/>
+    <text x="${x+labelW+(w-labelW)/2}" y="${ry+rowH/2}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#0c447c">${val}</text>`;
+  });
+  return out;
+}
+
+function renderFlowChart(rows) {
+  const el = document.getElementById('flowChart');
+  const f = computeFlowNumbers(rows);
+  const W = 1360, H = 660;
+  let svg = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="font-family:inherit;">
+  <defs><marker id="flowArrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M1 1L9 5L1 9" fill="none" stroke="#5F5E5A" stroke-width="1.5"/></marker></defs>`;
+
+  const leak = (mx, my, label, color) => {
+    color = color || {bg:'#FAECE7', bd:'#D85A30', tx:'#4A1B0C'};
+    const w = Math.max(70, label.length * 6.2);
+    return `<rect x="${mx-w/2}" y="${my-11}" width="${w}" height="20" fill="${color.bg}" stroke="${color.bd}" stroke-width="0.5" rx="4"/>
+    <text x="${mx}" y="${my+3}" text-anchor="middle" font-size="10.5" fill="${color.tx}">${label}</text>`;
+  };
+  const arrow = (path) => `<path d="${path}" stroke="#5F5E5A" stroke-width="1.5" fill="none" marker-end="url(#flowArrowHead)"/>`;
+
+  // ================= SYMPTOMATIC ARM =================
+  const sY = 30;
+  svg += `<text x="10" y="${sY}" font-size="14" font-weight="700" fill="#003E78">Symptomatic arm</text>`;
+  const symBase = sY + 20;
+  // Symptomatic box
+  svg += flowBox(10, symBase, 190, 56, 'Symptomatic', f.symptomatic, {fill:'#FAECE7', stroke:'#D85A30', textColor:'#4A1B0C'});
+  svg += arrow(`M200 ${symBase+28} L340 ${symBase+28}`);
+  if (f.symNotCollected > 0) svg += leak(270, symBase+28, '-' + f.symNotCollected + ' not collected');
+  // Samples collected
+  svg += flowBox(340, symBase, 190, 56, 'Samples collected', f.symCollected, {fill:'#E1F5EE', stroke:'#0F6E56', textColor:'#04342C'});
+  // Branch to PCR (up) / NAAT (down)
+  svg += arrow(`M530 ${symBase+28} L580 ${symBase+28} L580 ${symBase-20} L630 ${symBase-20}`);
+  svg += arrow(`M530 ${symBase+28} L580 ${symBase+28} L580 ${symBase+100} L630 ${symBase+100}`);
+  const addition = (mx, my, label) => leak(mx, my, '+' + label, {bg:'#FAEEDA', bd:'#BA7517', tx:'#412402'});
+  if (f.symPcrNotDone > 0) svg += leak(580, symBase-6, '-' + f.symPcrNotDone + ' not tested');
+  if (f.symPcrAdded > 0) svg += addition(580, symBase+14, f.symPcrAdded + ' additional');
+  if (f.symNaatNotDone > 0) svg += leak(580, symBase+50, '-' + f.symNaatNotDone + ' not tested');
+  if (f.symNaatAdded > 0) svg += addition(580, symBase+78, f.symNaatAdded + ' additional');
+  svg += flowBox(630, symBase-48, 210, 56, 'RT-PCR completed', f.symPcrDone, {fill:'#E6F1FB', stroke:'#185FA5', textColor:'#042C53'});
+  svg += flowBox(630, symBase+72, 210, 56, 'NAAT completed', f.symNaatDone, {fill:'#FAEEDA', stroke:'#BA7517', textColor:'#412402'});
+
+  // ================= ASYMPTOMATIC ARM =================
+  const aTitleY = symBase + 160;
+  svg += `<text x="10" y="${aTitleY}" font-size="14" font-weight="700" fill="#003E78">Asymptomatic arm</text>`;
+  const aBase = aTitleY + 20;
+  svg += flowBox(10, aBase, 190, 56, 'Asymptomatic', f.asymptomatic, {fill:'#EEEDFE', stroke:'#534AB7', textColor:'#26215C'});
+  svg += arrow(`M200 ${aBase+28} L240 ${aBase+28} L240 ${aBase-20} L280 ${aBase-20}`);
+  svg += arrow(`M200 ${aBase+28} L240 ${aBase+28} L240 ${aBase+100} L280 ${aBase+100}`);
+  if (f.xrayPending > 0) svg += leak(240, aBase+45, '-' + f.xrayPending + ' pending');
+  svg += flowBox(280, aBase-48, 170, 56, 'Normal CXR (exit)', f.xrayNormal, {fill:'#F1EFE8', stroke:'#5F5E5A', textColor:'#2C2C2A'});
+  svg += flowBox(280, aBase+72, 170, 56, 'Abnormal CXR', f.xrayAbnormal, {fill:'#EEEDFE', stroke:'#534AB7', textColor:'#26215C'});
+  svg += arrow(`M450 ${aBase+100} L600 ${aBase+100}`);
+  if (f.abnNotCollected > 0) svg += leak(525, aBase+88, '-' + f.abnNotCollected + ' not collected');
+  if (f.abnCollectedAdded > 0) svg += addition(525, aBase+112, f.abnCollectedAdded + ' additional');
+  svg += flowBox(600, aBase+72, 190, 56, 'Samples collected', f.abnCollected, {fill:'#E1F5EE', stroke:'#0F6E56', textColor:'#04342C'});
+  svg += arrow(`M790 ${aBase+100} L840 ${aBase+100} L840 ${aBase+52} L890 ${aBase+52}`);
+  svg += arrow(`M790 ${aBase+100} L840 ${aBase+100} L840 ${aBase+172} L890 ${aBase+172}`);
+  if (f.abnPcrNotDone > 0) svg += leak(840, aBase+66, '-' + f.abnPcrNotDone + ' not tested');
+  if (f.abnPcrAdded > 0) svg += addition(840, aBase+86, f.abnPcrAdded + ' additional');
+  if (f.abnNaatNotDone > 0) svg += leak(840, aBase+122, '-' + f.abnNaatNotDone + ' not tested');
+  if (f.abnNaatAdded > 0) svg += addition(840, aBase+152, f.abnNaatAdded + ' additional');
+  svg += flowBox(890, aBase+24, 210, 56, 'RT-PCR completed', f.abnPcrDone, {fill:'#E6F1FB', stroke:'#185FA5', textColor:'#042C53'});
+  svg += flowBox(890, aBase+144, 210, 56, 'NAAT completed', f.abnNaatDone, {fill:'#FAEEDA', stroke:'#BA7517', textColor:'#412402'});
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+  el.dataset.needsTables = '1';
+
+  // Now inject the correctly-computed mini result tables (positions match boxes above)
+  renderInlineResultTables(el, rows, symBase, aBase);
+
+  const anomalyCount = f.testedWithoutForm + f.testedNotScreened;
+  document.getElementById('anomalyFootnote').innerHTML = anomalyCount > 0
+    ? `<strong>Data quality flag:</strong> ${anomalyCount} record${anomalyCount===1?'':'s'} in this snapshot ${anomalyCount===1?'has':'have'} a test result despite missing an earlier step (not marked as sample-collected, or not marked as screened/eligible). These are included in the totals above, so intermediate stage numbers may not perfectly add up. A separate follow-up list with patient name, ID, location, and exact issue has been provided outside this dashboard.`
+    : '';
+}
+
+function renderInlineResultTables(el, rows, symBase, aBase) {
+  const isYesL = v => (v||'').toLowerCase() === 'yes';
+  const lowL = v => (v||'').toLowerCase();
+  function counts(subset, field) {
+    return {
+      pos: subset.filter(r => lowL(r[field]) === 'positive').length,
+      neg: subset.filter(r => lowL(r[field]) === 'negative').length,
+      inv: subset.filter(r => lowL(r[field]) === 'invalid').length,
+    };
+  }
+  const symptomatic = rows.filter(r => isYesL(r.has_symptom));
+  const asymptomatic = rows.filter(r => lowL(r.has_symptom) === 'no');
+  const sp = counts(symptomatic, 'pcr_result'), sn = counts(symptomatic, 'naat_result');
+  const ap = counts(asymptomatic, 'pcr_result'), an = counts(asymptomatic, 'naat_result');
+
+  const svgEl = el.querySelector('svg');
+  const ns = 'http://www.w3.org/2000/svg';
+  function inject(x, y, c) {
+    const g = document.createElementNS(ns, 'g');
+    g.innerHTML = miniResultTableSVG(x, y, c.pos, c.neg, c.inv, 190);
+    svgEl.appendChild(g);
+  }
+  inject(870, symBase-48, sp);
+  inject(870, symBase+72, sn);
+  inject(1130, aBase+24, ap);
+  inject(1130, aBase+144, an);
+}
+
+function matrixTable(title, m) {
+  return `<div class="matrix-block">
+    <h4>${title}</h4>
+    <table class="matrix-table">
+      <tr><td class="corner"></td><th>NAAT+</th><th>NAAT\u2212</th></tr>
+      <tr><th>PCR+</th><td class="concordant">${m.bothPos}</td><td class="discordant">${m.pcrPosNaatNeg}</td></tr>
+      <tr><th>PCR\u2212</th><td class="discordant">${m.pcrNegNaatPos}</td><td class="concordant">${m.bothNeg}</td></tr>
+    </table>
+    <div class="matrix-footnote">${m.invalid} invalid \u00b7 ${m.single} single-test-only (excluded above)</div>
+  </div>`;
+}
+
+function renderConcordanceTable(rows) {
+  const isYesL = v => (v||'').toLowerCase() === 'yes';
+  const lowL = v => (v||'').toLowerCase();
+  function calc(subset) {
+    let bothPos=0, bothNeg=0, pcrPosNaatNeg=0, pcrNegNaatPos=0, invalid=0, single=0;
+    subset.forEach(r => {
+      const p = lowL(r.pcr_result), n = lowL(r.naat_result);
+      if (p && n) {
+        if (p === 'invalid' || n === 'invalid') invalid++;
+        else if (p === 'positive' && n === 'positive') bothPos++;
+        else if (p === 'negative' && n === 'negative') bothNeg++;
+        else if (p === 'positive' && n === 'negative') pcrPosNaatNeg++;
+        else if (p === 'negative' && n === 'positive') pcrNegNaatPos++;
+      } else if (p || n) single++;
+    });
+    return {bothPos, bothNeg, pcrPosNaatNeg, pcrNegNaatPos, invalid, single};
+  }
+  const symptomatic = rows.filter(r => isYesL(r.has_symptom));
+  const asymptomatic = rows.filter(r => lowL(r.has_symptom) === 'no');
+  const html = `<div class="matrix-row">
+    ${matrixTable('Symptomatic', calc(symptomatic))}
+    ${matrixTable('Asymptomatic', calc(asymptomatic))}
+    ${matrixTable('Overall', calc(rows))}
+  </div>`;
+  document.getElementById('concordanceTable').innerHTML = html;
+}
+
+function renderRifTable(rows) {
+  const isYesL = v => (v||'').toLowerCase() === 'yes';
+  const lowL = v => (v||'').toLowerCase();
+  function calc(subset) {
+    const naatPos = subset.filter(r => lowL(r.naat_result) === 'positive');
+    const res = naatPos.filter(r => lowL(r.result_of_rif_test) === 'resistance_detected').length;
+    const sens = naatPos.filter(r => lowL(r.result_of_rif_test) === 'resistance_not_detected').length;
+    const indet = naatPos.filter(r => lowL(r.result_of_rif_test) === 'rif_indeterminate').length;
+    const notTested = naatPos.filter(r => !isYesL(r.rif_test_completed)).length;
+    return {naatPos: naatPos.length, res, sens, indet, notTested};
+  }
+  const symptomatic = rows.filter(r => isYesL(r.has_symptom));
+  const asymptomatic = rows.filter(r => lowL(r.has_symptom) === 'no');
+  const groups = [['Symptomatic NAAT+', calc(symptomatic)], ['Asymptomatic NAAT+', calc(asymptomatic)], ['Overall', calc(rows)]];
+  let html = '<table class="heatmap"><tr><th>Group</th><th>NAAT positive</th><th>Rif resistant</th><th>Rif sensitive</th><th>Indeterminate</th><th>Not tested</th></tr>';
+  groups.forEach(([name, c]) => {
+    html += `<tr><td class="district-name">${name}</td><td>${c.naatPos}</td><td>${c.res}</td><td>${c.sens}</td><td>${c.indet}</td><td>${c.notTested}</td></tr>`;
+  });
+  html += '</table>';
+  document.getElementById('rifTable').innerHTML = html;
+}
+
+function renderOverviewTestSummary(rows) {
+  const isYesL = v => (v||'').toLowerCase() === 'yes';
+  const lowL = v => (v||'').toLowerCase();
+  function testBlock(subset, field) {
+    const pos = subset.filter(r => lowL(r[field]) === 'positive').length;
+    const neg = subset.filter(r => lowL(r[field]) === 'negative').length;
+    const inv = subset.filter(r => lowL(r[field]) === 'invalid').length;
+    const valid = pos + neg;
+    const positivity = valid ? (pos / valid * 100) : null;
+    return {pos, neg, inv, positivity};
+  }
+  function groupHtml(title, subset) {
+    const pcr = testBlock(subset, 'pcr_result');
+    const naat = testBlock(subset, 'naat_result');
+    const testRow = (name, t) => `
+      <div class="group-summary-test">
+        <div class="test-name">${name}</div>
+        <div class="group-summary-test-row">
+          ${resultTableHtml(t.pos, t.neg, t.inv)}
+          <div class="positivity-card">
+            <div class="val">${t.positivity===null ? '\u2014' : t.positivity.toFixed(1)+'%'}</div>
+            <div class="lbl">Positivity rate</div>
+          </div>
+        </div>
+      </div>`;
+    return `<div class="group-summary-block">
+      <h4>${title}</h4>
+      ${testRow('RT-PCR', pcr)}
+      ${testRow('NAAT', naat)}
+    </div>`;
+  }
+  const symptomatic = rows.filter(r => isYesL(r.has_symptom));
+  const asymptomatic = rows.filter(r => lowL(r.has_symptom) === 'no');
+  const notYetScreened = rows.filter(r => { const v = lowL(r.has_symptom); return v !== 'yes' && v !== 'no'; }).length;
+  const nyNote = notYetScreened > 0
+    ? `<p class="desc" style="margin:12px 0 0;"><strong>Note:</strong> ${notYetScreened} patient${notYetScreened===1?'':'s'} whose symptom status isn't yet recorded ${notYetScreened===1?'is':'are'} excluded from the Symptomatic and Asymptomatic groups (Asymptomatic = symptom status \u201cno\u201d) and ${notYetScreened===1?'is':'are'} counted only in the Total column.</p>`
+    : '';
+  const html = `<div class="group-summary-row">
+    ${groupHtml('Symptomatic', symptomatic)}
+    ${groupHtml('Asymptomatic', asymptomatic)}
+    ${groupHtml('Total', rows)}
+  </div>` + nyNote;
+  document.getElementById('overviewTestSummary').innerHTML = html;
+}
+
+function resultTableHtml(pos, neg, inv) {
+  return `<table class="result-table">
+    <tr><td class="rlabel">Positive</td><td class="rvalue">${pos}</td></tr>
+    <tr><td class="rlabel">Negative</td><td class="rvalue">${neg}</td></tr>
+    <tr><td class="rlabel">Invalid</td><td class="rvalue">${inv}</td></tr>
+  </table>`;
+}
+
+
+// ---------- Filter wiring ----------
+document.querySelectorAll('.btn-group').forEach(group => {
+  const key = group.dataset.filter;
+  group.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      filters[key] = btn.dataset.value;
+      renderAll();
+    });
+  });
+});
+document.querySelectorAll('.district-cb').forEach(cb => {
+  cb.addEventListener('change', () => {
+    filters.districts = new Set(Array.from(document.querySelectorAll('.district-cb:checked')).map(c=>c.value));
+    renderAll();
+  });
+});
+document.getElementById('dateStart').addEventListener('change', e => { filters.dateStart = e.target.value ? new Date(e.target.value) : null; renderAll(); });
+document.getElementById('dateEnd').addEventListener('change', e => {
+  filters.dateEnd = e.target.value ? new Date(e.target.value + 'T23:59:59') : null; renderAll();
+});
+document.getElementById('clearDates').addEventListener('click', () => {
+  document.getElementById('dateStart').value = ''; document.getElementById('dateEnd').value = '';
+  filters.dateStart = null; filters.dateEnd = null; renderAll();
+});
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab !== 'overview') renderAll();
+  });
+});
+
+// ---------- Load anonymized data feed (published nightly by the scheduled job) ----------
+(async function loadData(){
+  const sub = document.getElementById('dataStatusSub');
+  if (sub) sub.textContent = 'Loading latest data\u2026';
+  try {
+    const resp = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const payload = await resp.json();
+    const records = Array.isArray(payload) ? payload : (payload.records || []);
+    RAW_ROWS = records;
+    renderAll();
+    if (sub) {
+      const gen = (!Array.isArray(payload) && payload.generated) ? new Date(payload.generated) : null;
+      const when = gen ? gen.toLocaleString(undefined, {year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'latest';
+      sub.innerHTML = 'Data updated: ' + when + ' &nbsp;|&nbsp; ' + records.length.toLocaleString() + ' case records';
+    }
+  } catch (e) {
+    if (sub) sub.textContent = 'Could not load the data feed (' + e.message + '). Try refreshing; if it persists, contact the dashboard admin.';
+    console.error('data load failed', e);
+  }
+})();
+
+</script>
+</body>
+</html>
