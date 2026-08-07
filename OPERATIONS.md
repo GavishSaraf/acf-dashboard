@@ -32,6 +32,7 @@ Anyone with the link refreshes the page and sees the latest data
 - **Live URL:** `https://<owner>.github.io/acf-dashboard/`
 - **Refresh cadence:** once daily (data is only as fresh as CommCare's daily feed).
 - The dashboard header shows a **"Data updated: …"** timestamp = when the job last pulled.
+- GitHub cron works on a best-effort basis depending on server availability; autoupdates can thus be 15–90 min late or occasionally skipped — this is not a reason for panic and is acceptable because the source (CommCare) is daily
 
 ---
 
