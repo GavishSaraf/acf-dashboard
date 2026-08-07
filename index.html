@@ -95,6 +95,7 @@
   }
   .metric-tile .name { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
   .metric-tile .num { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .metric-tile .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
   .metric-tile.pcr { border-left-color: var(--turq); }
   .metric-tile.naat { border-left-color: var(--gold); }
   table.heatmap { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -291,12 +292,12 @@
 
   <div class="tab-content" id="tab-testing">
     <div class="assumption-banner">
-      NAAT does not have a separate "received by lab" timestamp in the form, so <strong>NAAT Lab TAT</strong> is measured from test start to result, while <strong>PCR Lab TAT</strong> is measured from sample-received-by-lab to result. Keep this in mind when comparing the two directly.
+      <strong>Lab TAT</strong> is measured the same way for both assays &mdash; from <strong>sample received by lab</strong> to result &mdash; using the shared sample-received timestamp (the sputum sample is received once and split for RT-PCR and NAAT). Cards show the <strong>mean</strong> (with the median beside it); the distributions below are right-skewed, so mean and median differ.
     </div>
 
     <section class="panel">
-      <h2>A. Utilization &amp; positivity</h2>
-      <p class="desc">Utilization = tested / eligible (symptomatic + asymptomatic with abnormal CXR). Positivity = positive / valid results.</p>
+      <h2>A. Testing &amp; positivity</h2>
+      <p class="desc">Testing = the share of testing-eligible patients tested by each technology (eligible = symptomatic OR abnormal chest X-ray). Positivity = positive / valid results.</p>
       <div class="cluster-grid" id="clusterA"></div>
     </section>
 
@@ -308,7 +309,7 @@
 
     <section class="panel">
       <h2>C. Turnaround time (TAT)</h2>
-      <p class="desc">How the whole caseload is distributed, not just the fastest results. Patient TAT = sputum collection &rarr; result; lab TAT = sample received (PCR) / test start (NAAT) &rarr; result. Medians are shown as cards; the bars show the full spread across all results.</p>
+      <p class="desc">How the whole caseload is distributed, not just the fastest results. Patient TAT = sputum collection &rarr; result; lab TAT = sample received by lab &rarr; result (both assays). Cards show the mean with the median beside it; the bars show the full spread across all results.</p>
       <div class="cluster-grid" id="tatMedians"></div>
       <div class="tat-hist-grid" style="margin-top:18px;">
         <div class="tat-hist"><div class="tat-hist-title">RT-PCR &mdash; patient TAT</div><div id="tatHistPcrPatient"></div></div>
@@ -399,17 +400,19 @@ function computeTAT(rows) {
   const pcrLab=[], pcrPatient=[], naatLab=[], naatPatient=[];
   rows.forEach(r => {
     const collected = parseDateTime(r.tat_sputum_collection);
-    const pcrReceived = parseDateTime(r.tat_pcr_received);
+    const received = parseDateTime(r.tat_pcr_received);   // sample received by lab (shared; sample is split for PCR & NAAT)
     const pcrResultTime = parseDateTime(r.tat_pcr_result);
-    const naatStart = parseDateTime(r.tat_naat_start);
     const naatResultTime = parseDateTime(r.tat_naat_result);
-    const h1 = hoursBetween(pcrReceived, pcrResultTime); if (h1!==null) pcrLab.push(h1);
-    const h2 = hoursBetween(collected, pcrResultTime); if (h2!==null) pcrPatient.push(h2);
-    const h3 = hoursBetween(naatStart, naatResultTime); if (h3!==null) naatLab.push(h3);
-    const h4 = hoursBetween(collected, naatResultTime); if (h4!==null) naatPatient.push(h4);
+    const push = (arr, h) => { if (h !== null && h >= 0) arr.push(h); };  // drop out-of-order (negative) durations
+    push(pcrLab,      hoursBetween(received, pcrResultTime));
+    push(pcrPatient,  hoursBetween(collected, pcrResultTime));
+    push(naatLab,     hoursBetween(received, naatResultTime));   // received -> result (both assays measured the same way)
+    push(naatPatient, hoursBetween(collected, naatResultTime));
   });
+  const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null;
   return {
     pcrLab, pcrPatient, naatLab, naatPatient,
+    pcrLabMean: mean(pcrLab), pcrPatientMean: mean(pcrPatient), naatLabMean: mean(naatLab), naatPatientMean: mean(naatPatient),
     pcrLabMedian: median(pcrLab), pcrPatientMedian: median(pcrPatient),
     naatLabMedian: median(naatLab), naatPatientMedian: median(naatPatient),
   };
@@ -466,8 +469,9 @@ function kpiCard(val, lbl, opts) {
   const note = opts.note ? `<div class="note">${opts.note}</div>` : '';
   return `<div class="kpi-card ${opts.cls||''}"><div class="val">${val}</div>${pct}<div class="lbl">${lbl}</div>${def}${note}</div>`;
 }
-function metricTile(name, num, cls) {
-  return `<div class="metric-tile ${cls||''}"><div class="name">${name}</div><div class="num">${num}</div></div>`;
+function metricTile(name, num, cls, sub) {
+  const s = sub ? `<div class="sub">${sub}</div>` : '';
+  return `<div class="metric-tile ${cls||''}"><div class="name">${name}</div><div class="num">${num}</div>${s}</div>`;
 }
 
 /* ---------- Trend over time (Overview) ---------- */
@@ -535,13 +539,13 @@ function computeTrend(rows,metric,gran){
     series=[{name:'Rif resistance rate',color:CORAL,kind:'pct',rate:{num,den}}];
   } else if(metric==='tat'){
     basis='Registration date (derived; median lab turnaround)';
-    note='Median lab TAT for patients enrolled in each period (PCR = sample received \u2192 result; NAAT = test start \u2192 result).';
+    note='Median lab TAT for patients enrolled in each period (sample received by lab \u2192 result, for both RT-PCR and NAAT).';
     const pcr={},naat={};
     rows.forEach(r=>{ const k=trendBucketKey(reg(r),gran); if(!k) return;
       const hp=hoursBetween(parseDateTime(r.tat_pcr_received),parseDateTime(r.tat_pcr_result));
-      const hn=hoursBetween(parseDateTime(r.tat_naat_start),parseDateTime(r.tat_naat_result));
-      if(hp!==null){ keys.add(k); (pcr[k]=pcr[k]||[]).push(hp); }
-      if(hn!==null){ keys.add(k); (naat[k]=naat[k]||[]).push(hn); }
+      const hn=hoursBetween(parseDateTime(r.tat_pcr_received),parseDateTime(r.tat_naat_result));
+      if(hp!==null && hp>=0){ keys.add(k); (pcr[k]=pcr[k]||[]).push(hp); }
+      if(hn!==null && hn>=0){ keys.add(k); (naat[k]=naat[k]||[]).push(hn); }
     });
     series=[{name:'RT-PCR lab TAT (median h)',color:TURQ,kind:'hrs',arr:pcr},
             {name:'NAAT lab TAT (median h)',color:GOLD,kind:'hrs',arr:naat}];
@@ -760,8 +764,8 @@ function renderAll() {
 
   // Cluster A
   document.getElementById('clusterA').innerHTML =
-    metricTile('PCR utilization', fmtPct(clusters.pcrUtilization), 'pcr') +
-    metricTile('NAAT utilization', fmtPct(clusters.naatUtilization), 'naat') +
+    metricTile('RT-PCR testing', fmtPct(clusters.pcrUtilization), 'pcr') +
+    metricTile('NAAT testing', fmtPct(clusters.naatUtilization), 'naat') +
     metricTile('PCR positivity', fmtPct(clusters.pcrPositivity), 'pcr') +
     metricTile('NAAT positivity', fmtPct(clusters.naatPositivity), 'naat');
   // Cluster C
@@ -773,10 +777,10 @@ function renderAll() {
   // Cluster C — TAT: median cards + distribution histograms
   const fmtH = m => (m==null ? '\u2014' : m.toFixed(1)+' h');
   document.getElementById('tatMedians').innerHTML =
-    metricTile('RT-PCR lab TAT (median)', fmtH(tat.pcrLabMedian), 'pcr') +
-    metricTile('NAAT lab TAT (median)', fmtH(tat.naatLabMedian), 'naat') +
-    metricTile('RT-PCR patient TAT (median)', fmtH(tat.pcrPatientMedian), 'pcr') +
-    metricTile('NAAT patient TAT (median)', fmtH(tat.naatPatientMedian), 'naat');
+    metricTile('RT-PCR lab TAT (mean)', fmtH(tat.pcrLabMean), 'pcr', 'Median ' + fmtH(tat.pcrLabMedian)) +
+    metricTile('NAAT lab TAT (mean)', fmtH(tat.naatLabMean), 'naat', 'Median ' + fmtH(tat.naatLabMedian)) +
+    metricTile('RT-PCR patient TAT (mean)', fmtH(tat.pcrPatientMean), 'pcr', 'Median ' + fmtH(tat.pcrPatientMedian)) +
+    metricTile('NAAT patient TAT (mean)', fmtH(tat.naatPatientMean), 'naat', 'Median ' + fmtH(tat.naatPatientMedian));
   renderTatHist('tatHistPcrPatient', tat.pcrPatient, '#117996');
   renderTatHist('tatHistNaatPatient', tat.naatPatient, '#F3B71B');
   renderTatHist('tatHistPcrLab', tat.pcrLab, '#117996');
