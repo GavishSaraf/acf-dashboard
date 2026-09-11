@@ -46,6 +46,7 @@ COMPLETED    = 'completed_time'
 CASE_COLS = {  # feed column -> output key  (WHITELIST: only these leave the machine)
     # -- core programme fields --
     'camp_location':'camp_location','type_of_case_finding':'type_of_case_finding',
+    'tb_unit':'tb_unit',
     'site_of_the_camp_prison_hospital_etc':'site_of_the_camp_prison_hospital_etc',
     'date_of_registration':'date_of_registration',
     # -- screening --
@@ -62,6 +63,7 @@ CASE_COLS = {  # feed column -> output key  (WHITELIST: only these leave the mac
     # -- CXR --
     'xray_eligible':'xray_eligible','was_cxr_taken':'was_cxr_taken',
     'xray_abnormal':'xray_abnormal','result_of_x-ray':'result_of_xray',
+    'x-ray_taken_by_who':'xray_taken_by_who',
     'date_and_time_of_x-ray':'date_and_time_of_xray',
     # -- sample / testing --
     'nature_of_sample':'nature_of_sample','sputum_collected':'sputum_collected',
@@ -88,10 +90,11 @@ CASE_COLS = {  # feed column -> output key  (WHITELIST: only these leave the mac
 #   id_prefix, number-> patient-ID fragment / row serial (identifier-like)
 #   name, full_name, phone_number, nikshay_id, patient_id, owner_name, *_username
 #                    -> direct identifiers (removed at the feed too)
-#   remarks_if_any, if_other_please_specify, x-ray_taken_by_who
+#   remarks_if_any, if_other_please_specify
 #                    -> FREE TEXT: a data-entry person can type a name/phone here, so
 #                       including it would defeat anonymization. Add back only if the
 #                       team commits to reviewing/scrubbing it first.
+#   (x-ray_taken_by_who is a yes/no select, NOT free text -> now whitelisted above)
 #   closed, closed_date, last_modified_date, opened_date, pcr_result_time_text
 #                    -> system/audit/derived; not needed for analysis
 SAMPLE_TS = {'form.date_and_time_of_sputum_collection':'tat_sputum_collection'}
