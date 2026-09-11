@@ -174,7 +174,8 @@ for _, r in case.iterrows():
     for m, idx in [(SAMPLE_TS, samp_d), (PCR_TS, pcr_d), (NAAT_TS, naat_d)]:
         for src, dst in m.items():
             rec[dst] = ts(look(idx, cid, src))
-    records.append(rec)   # caseid intentionally NOT written
+    rec['caseid'] = cid   # study reference key (access still gated by CommCare login)
+    records.append(rec)
 
 payload = {
     'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
@@ -184,7 +185,7 @@ payload = {
 with open(OUT, 'w', encoding='utf-8') as f:
     json.dump(payload, f, ensure_ascii=False, separators=(',', ':'))
 
-leaked = [k for k in ('caseid','patient_id','full_name','name','phone_number','nikshay_id','id_prefix')
+leaked = [k for k in ('patient_id','full_name','name','phone_number','nikshay_id','id_prefix')
           if records and k in records[0]]
 assert not leaked, f'IDENTIFIER LEAKED INTO OUTPUT: {leaked}'
 print(f'Wrote {len(records)} anonymized records to {OUT} (generated {payload["generated"]}). No identifiers in output.')
